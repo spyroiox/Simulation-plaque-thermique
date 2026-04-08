@@ -105,13 +105,13 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
 QGroupBox { 
     border: 2px solid #334155; 
     border-radius: 8px; 
-    margin-top: 18px; 
+    margin-top: 18px;
     padding-top: 28px; 
     background-color: rgba(30, 41, 59, 0.4); 
 }
 QGroupBox::title { 
     subcontrol-origin: margin; 
-    subcontrol-position: top center; 
+    subcontrol-position: top center;
     padding: 8px 18px; 
     background-color: #0EA5E9; 
     color: #FFFFFF; 
@@ -153,6 +153,7 @@ class SimulationThread(QThread):
     def run(self):
         params = self.parametres
         resolution = int(params["resolution_grille"])
+     
         vecteur_x = np.linspace(-params["largeur_x_mm"]/2, params["largeur_x_mm"]/2, resolution + 1)
         vecteur_y = np.linspace(0, params["longueur_y_mm"], resolution + 1)
         grille_X, grille_Y = np.meshgrid(vecteur_x, vecteur_y)
@@ -171,6 +172,7 @@ class SimulationThread(QThread):
         cst_diffusion_y = params["diffusivite_alpha"] * pas_temps / pas_y**2
         
         cst_perte_convection = params["coeff_convection_h"] * pas_temps / (params["masse_volumique_rho"] * params["chaleur_massique_cp"] * params["epaisseur_mm"])
+       
         ajout_temp_tec = (puissance_volumique_tec * pas_temps) / (params["masse_volumique_rho"] * params["chaleur_massique_cp"])
         ajout_temp_resistance = (params["tension_resistance_V"]**2 * pas_temps) / (params["valeur_resistance_ohm"] * params["masse_volumique_rho"] * params["chaleur_massique_cp"] * params["epaisseur_mm"] * pas_x * pas_y)
 
@@ -277,7 +279,6 @@ class MainWindow(QMainWindow):
         self.mode_direct_actif = True
         self.temperature_ambiante_ref = 20.0
         self.temperature_max_globale = 21.0
-        
         self.exageration_z = 5.0 
 
         positions_couleurs = np.linspace(0.0, 1.0, 5)
@@ -285,7 +286,7 @@ class MainWindow(QMainWindow):
             [68, 1, 84, 255],     
             [49, 104, 142, 255],  
             [200, 70, 150, 255],  
-            [255, 100, 100, 255],  
+            [255, 100, 100, 255], 
             [255, 0, 0, 255]   
         ], dtype=np.ubyte)
         self.palette_couleurs = pg.ColorMap(positions_couleurs, valeurs_rgb)
@@ -564,7 +565,7 @@ class MainWindow(QMainWindow):
                 with open(chemin_fichier, 'r') as fichier:
                     donnees = json.load(fichier)
                     parametres = donnees.get("parametres", donnees)
-                    for cle, valeur in parametres.items():
+                for cle, valeur in parametres.items():
                         if cle in self.champs_saisie:
                             self.champs_saisie[cle].setValue(float(valeur))
             except Exception as erreur:
@@ -686,6 +687,15 @@ class MainWindow(QMainWindow):
         t3 = self.donnees_y_t3[index]
         temps_a_ce_moment = self.donnees_temps[index]
         
+        # --- CORRECTION : Mise à jour de la ligne pointillée ---
+        self.curseur_temps_2d.setPos(temps_a_ce_moment)
+        
+        if self.mode_direct_actif:
+            self.curseur_temps_2d.hide()
+        else:
+            self.curseur_temps_2d.show()
+        # -------------------------------------------------------
+        
         self.dessiner_rendu_3d(matrice_historique, temps_a_ce_moment, t1, t2, t3)
     
     def toggle_lecture_temps(self):
@@ -717,16 +727,12 @@ class MainWindow(QMainWindow):
         delai = int(100 / self.vitesse_lecture)
         QTimer.singleShot(delai, self.lecture_temporelle)
     
+    # --- CORRECTION : Nettoyage de la méthode modifier_vitesse_lecture ---
     def modifier_vitesse_lecture(self, text):
         """Modifie la vitesse de lecture de la timeline"""
         vitesses = {"0.5x": 0.5, "1.0x": 1.0, "2.0x": 2.0, "5x": 5.0}
         self.vitesse_lecture = vitesses.get(text, 1.0)
-        
-        self.curseur_temps_2d.setPos('temps_a_ce_moment')
-        if self.mode_direct_actif:
-            self.curseur_temps_2d.hide()
-        else:
-            self.curseur_temps_2d.show()
+    # ---------------------------------------------------------------------
 
     def dessiner_rendu_3d(self, matrice_temperatures_3d, temps_sim, t1, t2, t3):
         temp_min = self.temperature_ambiante_ref
@@ -796,7 +802,7 @@ class MainWindow(QMainWindow):
         if not self.chemin_sauvegarde:
             self.choisir_chemin_sauvegarde()
             if not self.chemin_sauvegarde: return
-            
+             
         contenu_export = {"parametres": self.donnees_entree, "resultats": self.donnees_resultats}
         with open(self.chemin_sauvegarde, "w") as fichier:
             json.dump(contenu_export, fichier, indent=4, default=lambda x: x.item() if isinstance(x, np.generic) else x)
