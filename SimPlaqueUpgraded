@@ -722,7 +722,7 @@ class MainWindow(QMainWindow):
         vitesses = {"0.5x": 0.5, "1.0x": 1.0, "2.0x": 2.0, "5x": 5.0}
         self.vitesse_lecture = vitesses.get(text, 1.0)
         
-        self.curseur_temps_2d.setPos(temps_a_ce_moment)
+        self.curseur_temps_2d.setPos('temps_a_ce_moment')
         if self.mode_direct_actif:
             self.curseur_temps_2d.hide()
         else:
