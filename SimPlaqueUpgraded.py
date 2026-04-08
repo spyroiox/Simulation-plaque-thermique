@@ -149,6 +149,13 @@ class SimulationThread(QThread):
         super().__init__()
         self.parametres = data
         self.en_cours_d_execution = True
+        
+        # --- NOUVEAU: Variable pour la puissance en direct ---
+        self.puissance_dynamique = float(data["puissance_tec_W"])
+
+    # --- NOUVEAU: Méthode pour recevoir la mise à jour de puissance ---
+    def modifier_puissance(self, nouvelle_puissance):
+        self.puissance_dynamique = float(nouvelle_puissance)
 
     def run(self):
         params = self.parametres
@@ -166,14 +173,12 @@ class SimulationThread(QThread):
         pas_temps = min(pas_temps, limite_stabilite)
 
         volume_module_tec = (2 * pas_x) * (2 * pas_y) * params["epaisseur_mm"]
-        puissance_volumique_tec = params["puissance_tec_W"] / volume_module_tec
 
         cst_diffusion_x = params["diffusivite_alpha"] * pas_temps / pas_x**2
         cst_diffusion_y = params["diffusivite_alpha"] * pas_temps / pas_y**2
         
         cst_perte_convection = params["coeff_convection_h"] * pas_temps / (params["masse_volumique_rho"] * params["chaleur_massique_cp"] * params["epaisseur_mm"])
        
-        ajout_temp_tec = (puissance_volumique_tec * pas_temps) / (params["masse_volumique_rho"] * params["chaleur_massique_cp"])
         ajout_temp_resistance = (params["tension_resistance_V"]**2 * pas_temps) / (params["valeur_resistance_ohm"] * params["masse_volumique_rho"] * params["chaleur_massique_cp"] * params["epaisseur_mm"] * pas_x * pas_y)
 
         matrice_T = np.full_like(grille_X, params["temperature_ambiante_C"], dtype=np.float32)
@@ -202,6 +207,12 @@ class SimulationThread(QThread):
         self.update_signal.emit(0.0, matrice_T.copy(), historique_T1[0], historique_T2[0], historique_T3[0])
 
         while self.en_cours_d_execution and temps_ecoule < params["temps_total_s"]:
+            
+            # --- NOUVEAU: Recalcul de l'apport TEC en direct à chaque itération ---
+            puissance_volumique_tec = self.puissance_dynamique / volume_module_tec
+            ajout_temp_tec = (puissance_volumique_tec * pas_temps) / (params["masse_volumique_rho"] * params["chaleur_massique_cp"])
+            # ----------------------------------------------------------------------
+
             for _ in range(calculs_par_actualisation):
                 if temps_ecoule >= params["temps_total_s"]: break
                 
@@ -371,6 +382,11 @@ class MainWindow(QMainWindow):
         self.layout_formulaire.addStretch()
         zone_defilement.setWidget(contenu_defilement)
         layout_gauche.addWidget(zone_defilement)
+
+        # --- NOUVEAU: Connecter le slider de puissance en temps réel ---
+        self.champs_saisie["puissance_tec_W"].slider.valueChanged.connect(self.actualiser_puissance_live)
+        self.champs_saisie["puissance_tec_W"].value_input.editingFinished.connect(self.actualiser_puissance_live)
+        # ---------------------------------------------------------------
 
         cadre_controles = QFrame()
         cadre_controles.setObjectName("Section")
@@ -645,6 +661,13 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'thread_simulation') and self.thread_simulation.isRunning():
             self.thread_simulation.stop()
             self.exporter_resultats_json()
+            
+    # --- NOUVEAU: Fonction pour envoyer la puissance au thread ---
+    def actualiser_puissance_live(self):
+        if hasattr(self, 'thread_simulation') and self.thread_simulation.isRunning():
+            nouvelle_puissance = self.champs_saisie["puissance_tec_W"].value()
+            self.thread_simulation.modifier_puissance(nouvelle_puissance)
+    # -------------------------------------------------------------
 
     def actualiser_graphiques(self, temps_sim, matrice_temperatures_3d, temp_T1, temp_T2, temp_T3):
         max_actuel = matrice_temperatures_3d.max()
